@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floating Morphing Cube</title>
+    <style>
+        body {
+            margin: 0;
+            overflow-x: hidden;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 300vh; /* Make page extra scrollable to showcase morphing */
+        }
+
+        #scene-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: -1;
+        }
+
+        .spacer {
+            height: 100vh;
+        }
+
+        .instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="scene-container"></div>
+    
+    <div class="spacer"></div>
+    
+    <div class="instructions">
+        Scroll down to see the cube morph through different shapes
+    </div>
+
+    <!-- Include Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Include anime.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    
+    <script>
+        // Main variables
+        let scene, camera, renderer, cube, trophy;
+        let scrollPercent = 0;
+        let currentMorph = 0;
+        
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('scene-container').appendChild(renderer.domElement);
+            
+            // Create cube
+            const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            const cubeMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x4fc3f7,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.9
+            });
+            cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            cube.position.y = 1.5; // Position above the trophy
+            scene.add(cube);
+            
+            // Create trophy base (computer chip circuit)
+            createTrophy();
+            
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0x4fc3f7, 1);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+            
+            const pointLight = new THREE.PointLight(0x00ffff, 1, 100);
+            pointLight.position.set(-5, -5, 5);
+            scene.add(pointLight);
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // Handle scroll events
+            window.addEventListener('scroll', onScroll);
+            
+            // Start animation
+            animate();
+        }
+        
+        // Create the trophy base (computer chip circuit)
+        function createTrophy() {
+            // Main base
+            const baseGeometry = new THREE.BoxGeometry(3, 0.3, 2);
+            const baseMaterial = new THREE.MeshPhongMaterial({ color: 0x263238 });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = -1.5;
+            scene.add(base);
+            
+            // Circuit board
+            const boardGeometry = new THREE.BoxGeometry(2.8, 0.1, 1.8);
+            const boardMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x37474f,
+                shininess: 30
+            });
+            const board = new THREE.Mesh(boardGeometry, boardMaterial);
+            board.position.y = -1.3;
+            scene.add(board);
+            
+            // Circuit paths (gold lines)
+            const pathMaterial = new THREE.MeshPhongMaterial({ color: 0xffd700 });
+            
+            // Create several circuit paths
+            for (let i = 0; i < 5; i++) {
+                const pathGeometry = new THREE.BoxGeometry(0.1, 0.02, 1.5 - i*0.2);
+                const path = new THREE.Mesh(pathGeometry, pathMaterial);
+                path.position.y = -1.25;
+                path.position.x = -1 + i*0.5;
+                scene.add(path);
+            }
+            
+            // Create vertical paths
+            for (let i = 0; i < 4; i++) {
+                const pathGeometry = new THREE.BoxGeometry(2 - i*0.3, 0.02, 0.1);
+                const path = new THREE.Mesh(pathGeometry, pathMaterial);
+                path.position.y = -1.25;
+                path.position.z = -0.6 + i*0.4;
+                scene.add(path);
+            }
+            
+            // Components (chips, resistors, etc.)
+            const componentMaterial = new THREE.MeshPhongMaterial({ color: 0x00bcd4 });
+            
+            // Central processor
+            const cpuGeometry = new THREE.BoxGeometry(0.8, 0.05, 0.8);
+            const cpu = new THREE.Mesh(cpuGeometry, componentMaterial);
+            cpu.position.set(0, -1.2, 0);
+            scene.add(cpu);
+            
+            // Small components around the CPU
+            const smallComponentGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.05, 16);
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const radius = 0.6;
+                const component = new THREE.Mesh(smallComponentGeometry, componentMaterial);
+                component.position.x = Math.cos(angle) * radius;
+                component.position.z = Math.sin(angle) * radius;
+                component.position.y = -1.225;
+                component.rotation.x = Math.PI / 2;
+                scene.add(component);
+            }
+            
+            // Capacitors
+            const capGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.1, 16);
+            const capMaterial = new THREE.MeshPhongMaterial({ color: 0x76ff03 });
+            for (let i = 0; i < 6; i++) {
+                const cap = new THREE.Mesh(capGeometry, capMaterial);
+                cap.position.x = -1 + Math.random() * 2;
+                cap.position.z = -0.8 + Math.random() * 1.6;
+                cap.position.y = -1.175;
+                cap.rotation.x = Math.PI / 2;
+                scene.add(cap);
+            }
+            
+            // Group all trophy parts
+            trophy = new THREE.Group();
+            trophy.add(base);
+            trophy.add(board);
+            scene.add(trophy);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Handle scroll events
+        function onScroll() {
+            // Calculate scroll percentage
+            const scrollTop = window.scrollY;
+            const docHeight = document.body.scrollHeight - window.innerHeight;
+            scrollPercent = Math.min(1, scrollTop / docHeight);
+            
+            // Apply morphing effect to cube based on scroll
+            morphCube();
+        }
+        
+        // Morph the cube based on scroll position
+        function morphCube() {
+            // Map scroll position to morph parameters (0-4 for 5 different shapes)
+            const morphValue = scrollPercent * 4;
+            const newMorph = Math.floor(morphValue);
+            
+            // Only update geometry if morph type changed
+            if (newMorph !== currentMorph) {
+                currentMorph = newMorph;
+                
+                // Dispose of old geometry
+                cube.geometry.dispose();
+                
+                // Apply different morphs based on scroll position
+                switch(currentMorph) {
+                    case 0: // Cube
+                        cube.geometry = new THREE.BoxGeometry(1, 1, 1);
+                        break;
+                    case 1: // Sphere
+                        cube.geometry = new THREE.SphereGeometry(0.8, 32, 32);
+                        break;
+                    case 2: // Torus
+                        cube.geometry = new THREE.TorusGeometry(0.6, 0.2, 16, 100);
+                        break;
+                    case 3: // Octahedron
+                        cube.geometry = new THREE.OctahedronGeometry(0.8);
+                        break;
+                    case 4: // Dodecahedron
+                        cube.geometry = new THREE.DodecahedronGeometry(0.7);
+                        break;
+                }
+            }
+            
+            // Apply continuous morphing within each shape using anime.js
+            const shapeProgress = morphValue - currentMorph;
+            
+            // Change color based on morph progress
+            const hue = (scrollPercent * 360) % 360;
+            cube.material.color.setHSL(hue/360, 0.8, 0.6);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate cube
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
+            
+            // Rotate trophy slightly
+            if (trophy) {
+                trophy.rotation.y += 0.002;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize the scene when the page loads
+        window.onload = init;
+    </script>
+</body>
+</html>
